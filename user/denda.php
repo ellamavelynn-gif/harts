@@ -2,26 +2,54 @@
 session_start();
 include '../config/koneksi.php';
 
-// Proteksi Halaman
 if (!isset($_SESSION['id_anggota'])) {
     header("Location: login.php");
     exit;
 }
 
+$is_login = true;
 $id_siswa = $_SESSION['id_anggota'];
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// --- LOGIKA CEK DENDA (Hanya untuk Notifikasi Sidebar) ---
 $query_total = mysqli_query($conn, "SELECT SUM(nominal) as total FROM kas_denda WHERE id_anggota = '$id_siswa' AND status_bayar = 'Belum Lunas'");
 $total_tagihan = mysqli_fetch_assoc($query_total)['total'] ?? 0;
-$punya_hutang = ($total_tagihan > 0);
 
-// Ambil riwayat denda lengkap
+function hitungTelatSiswa($tgl_kembali) {
+    if (empty($tgl_kembali) || $tgl_kembali == '0000-00-00 00:00:00' || $tgl_kembali == '0000-00-00') {
+        return ['telat' => 0, 'denda' => 0];
+    }
+    $tgl_sekarang = new DateTime();
+    $tgl_tenggat  = new DateTime($tgl_kembali);
+    if ($tgl_sekarang > $tgl_tenggat) {
+        $selisih = $tgl_tenggat->diff($tgl_sekarang);
+        $telat_hari = (int)$selisih->days;
+        if ($telat_hari > 0) {
+            return ['telat' => $telat_hari, 'denda' => $telat_hari * 5000];
+        }
+    }
+    return ['telat' => 0, 'denda' => 0];
+}
+
+$daftar_telat = [];
+$q_aktif = mysqli_query($conn, "SELECT peminjaman.*, buku.judul_buku FROM peminjaman LEFT JOIN buku ON peminjaman.id_buku = buku.id_buku WHERE peminjaman.id_anggota = '$id_siswa' AND peminjaman.status = 'Dipinjam'");
+if ($q_aktif) {
+    while ($rp = mysqli_fetch_assoc($q_aktif)) {
+        $info = hitungTelatSiswa($rp['tanggal_kembali']);
+        if ($info['telat'] > 0) {
+            $rp['telat_hari']     = $info['telat'];
+            $rp['estimasi_denda'] = $info['denda'];
+            $daftar_telat[] = $rp;
+        }
+    }
+}
+$ada_telat = count($daftar_telat) > 0;
+$punya_hutang = ($total_tagihan > 0) || $ada_telat;
+
 $query_denda = mysqli_query($conn, "SELECT * FROM kas_denda WHERE id_anggota = '$id_siswa' ORDER BY status_bayar ASC, tanggal_bayar DESC");
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" style="height: auto !important; overflow: auto !important;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,66 +58,61 @@ $query_denda = mysqli_query($conn, "SELECT * FROM kas_denda WHERE id_anggota = '
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/warna.css">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Menghilangkan scrollbar vertikal */
+        html {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        html::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
 </head>
-<body class="flex bg-[#FFFDF6]">
+<body class="bg-[#FFFDF6]" style="height: auto !important; overflow: auto !important; min-height: 100vh;">
 
-    <div id="accordian" class="w-80 h-screen glass-sidebar p-8 flex flex-col shadow-2xl fixed inset-y-0 left-0 z-50">
-        <div class="flex items-center mb-10">
-            <div class="bg-white p-2 rounded-xl mr-3 shadow-lg text-[#4C5372] font-black text-xl">H</div>
-            <h1 class="text-2xl font-black tracking-tighter uppercase text-[#4C5372]">Harts</h1>
-        </div>
+    <?php include 'topnav.php'; ?>
 
-        <nav class="space-y-3 flex-1">
-            <a href="index.php" class="flex items-center p-4 rounded-2xl transition-all group <?= ($current_page == 'index.php') ? 'nav-item-active' : 'nav-link'; ?>">
-                <i data-lucide="layout-dashboard" class="mr-4 w-5 h-5 transition-transform group-hover:scale-110"></i> 
-                <span class="font-bold">Beranda</span>
-            </a>
-
-            <a href="katalog.php" class="flex items-center p-4 rounded-2xl transition-all group <?= ($current_page == 'katalog.php') ? 'nav-item-active' : 'nav-link'; ?>">
-                <i data-lucide="book-open" class="mr-4 w-5 h-5 transition-transform group-hover:scale-110"></i> 
-                <span class="font-bold">E-Katalog</span>
-            </a>
-
-            <a href="pinjamanku.php" class="flex items-center p-4 rounded-2xl transition-all group <?= ($current_page == 'pinjamanku.php') ? 'nav-item-active' : 'nav-link'; ?>">
-                <i data-lucide="timer" class="mr-4 w-5 h-5 transition-transform group-hover:scale-110"></i> 
-                <span class="font-bold">Pinjamanku</span>
-            </a>
-
-            <a href="denda.php" class="flex items-center p-4 rounded-2xl transition-all group <?= ($current_page == 'denda.php') ? 'nav-item-active' : 'nav-link'; ?>">
-                <i data-lucide="wallet" class="mr-4 w-5 h-5 transition-transform group-hover:scale-110"></i> 
-                <span class="font-bold">Tagihan Denda</span>
-                <?php if ($punya_hutang) : ?>
-                    <span class="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                <?php endif; ?>
-            </a>
-
-            <a href="kartu_digital.php" class="flex items-center p-4 rounded-2xl transition-all group <?= ($current_page == 'kartu_digital.php') ? 'nav-item-active' : 'nav-link'; ?>">
-                <i data-lucide="vibrate" class="mr-4 w-5 h-5 transition-transform group-hover:scale-110"></i> 
-                <span class="font-bold">Kartu Digital</span>
-            </a>
-        </nav>
-
-        <a href="logout.php" class="p-4 font-bold flex items-center mt-auto nav-link text-[#4C5372]">
-            <i data-lucide="log-out" class="mr-2 w-5 h-5"></i> Keluar
-        </a>
-    </div>
-
-    <div class="ml-80 flex-1 p-12 relative min-h-screen overflow-y-auto text-[#4C5372]">
+    <!-- Main Content -->
+    <div class="flex-1 p-4 sm:p-8 lg:p-12 relative text-[#4C5372]">
         <div class="max-w-5xl mx-auto">
             
-            <div class="mb-12">
-                <h1 class="text-5xl font-black tracking-tight">Tagihan Denda 💸</h1>
-                <p class="font-medium mt-2 text-xl italic opacity-70">Pantau kewajiban dan status pembayaran denda kamu.</p>
+            <div class="mb-8 sm:mb-12">
+                <h1 class="text-3xl sm:text-5xl font-black tracking-tight">Tagihan Denda 💸</h1>
+                <p class="font-medium mt-2 text-base sm:text-xl italic opacity-70">Pantau kewajiban dan status pembayaran denda kamu.</p>
             </div>
 
-            <div class="bg-white/60 backdrop-blur-md rounded-[3rem] p-8 border border-white shadow-xl overflow-hidden">
-                <table class="w-full text-left border-separate border-spacing-y-4">
+            <?php if ($ada_telat): ?>
+            <div class="mb-8 p-5 sm:p-6 bg-amber-50 border-2 border-amber-100 rounded-2xl sm:rounded-[2rem] text-amber-900">
+                <div class="flex items-start gap-3 mb-4">
+                    <i data-lucide="alarm-clock" class="w-6 h-6 shrink-0 text-amber-600"></i>
+                    <div>
+                        <h4 class="font-black uppercase text-xs tracking-widest">Ada Buku yang Terlambat!</h4>
+                        <p class="text-xs sm:text-sm font-medium opacity-80 mt-1">Nominal di bawah ini estimasi (Rp 5.000/hari) dan <b>belum masuk daftar tagihan resmi</b>. Denda resmi baru tercatat setelah buku dikembalikan ke petugas. Kamu juga tidak bisa mengajukan pinjaman baru selama ini belum beres.</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <?php foreach ($daftar_telat as $item): ?>
+                    <div class="bg-white/70 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <div>
+                            <span class="font-black uppercase italic text-sm"><?= htmlspecialchars($item['judul_buku'] ?? 'Buku'); ?></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-red-600 ml-2">Telat <?= $item['telat_hari']; ?> Hari</span>
+                        </div>
+                        <span class="font-black text-sm sm:text-base">Rp <?= number_format($item['estimasi_denda'], 0, ',', '.'); ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <div class="bg-white/60 backdrop-blur-md rounded-2xl sm:rounded-[3rem] p-4 sm:p-8 shadow-xl overflow-x-auto">
+                <table class="w-full text-left border-separate border-spacing-y-4 min-w-[500px]">
                     <thead>
                         <tr class="text-[#4C5372] text-[10px] uppercase tracking-[0.2em] font-black opacity-40">
-                            <th class="px-8 pb-2">Tanggal</th>
-                            <th class="px-8 pb-2">Keterangan</th>
-                            <th class="px-8 pb-2">Status</th>
-                            <th class="px-8 pb-2 text-right">Nominal</th>
+                            <th class="px-4 sm:px-8 pb-2">Tanggal</th>
+                            <th class="px-4 sm:px-8 pb-2">Keterangan</th>
+                            <th class="px-4 sm:px-8 pb-2">Status</th>
+                            <th class="px-4 sm:px-8 pb-2 text-right">Nominal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -99,20 +122,20 @@ $query_denda = mysqli_query($conn, "SELECT * FROM kas_denda WHERE id_anggota = '
                                 $status_class = $is_lunas ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100';
                             ?>
                             <tr class="bg-white/80 hover:bg-white transition-all shadow-sm group">
-                                <td class="px-8 py-6 rounded-l-[2rem] font-bold text-sm opacity-60">
+                                <td class="px-4 sm:px-8 py-4 sm:py-6 rounded-l-2xl sm:rounded-l-[2rem] font-bold text-xs sm:text-sm opacity-60">
                                     <?= date('d M Y', strtotime($d['tanggal_bayar'])); ?>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <div class="font-black text-lg uppercase italic tracking-tighter"><?= $d['keterangan']; ?></div>
+                                <td class="px-4 sm:px-8 py-4 sm:py-6">
+                                    <div class="font-black text-base sm:text-lg uppercase italic tracking-tighter"><?= $d['keterangan']; ?></div>
                                     <div class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">ID: #<?= $d['kode_transaksi']; ?></div>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <span class="<?= $status_class; ?> px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border">
+                                <td class="px-4 sm:px-8 py-4 sm:py-6">
+                                    <span class="<?= $status_class; ?> px-3 sm:px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider border">
                                         <?= $d['status_bayar'] ?? 'Belum Lunas'; ?>
                                     </span>
                                 </td>
-                                <td class="px-8 py-6 rounded-r-[2rem] text-right">
-                                    <span class="font-black text-xl italic">
+                                <td class="px-4 sm:px-8 py-4 sm:py-6 rounded-r-2xl sm:rounded-r-[2rem] text-right">
+                                    <span class="font-black text-lg sm:text-xl italic">
                                         Rp <?= number_format($d['nominal'], 0, ',', '.'); ?>
                                     </span>
                                 </td>
@@ -120,10 +143,10 @@ $query_denda = mysqli_query($conn, "SELECT * FROM kas_denda WHERE id_anggota = '
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="4" class="text-center py-24">
+                                <td colspan="4" class="text-center py-16 sm:py-24">
                                     <div class="flex flex-col items-center opacity-30">
-                                        <i data-lucide="check-circle-2" class="w-16 h-16 mb-4"></i>
-                                        <p class="font-black italic text-xl uppercase tracking-tighter">Bersih! Tidak ada denda.</p>
+                                        <i data-lucide="check-circle-2" class="w-12 h-12 sm:w-16 sm:h-16 mb-4"></i>
+                                        <p class="font-black italic text-lg sm:text-xl uppercase tracking-tighter">Bersih! Tidak ada denda.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -132,21 +155,19 @@ $query_denda = mysqli_query($conn, "SELECT * FROM kas_denda WHERE id_anggota = '
                 </table>
             </div>
 
-            <div class="mt-8">
-                <div class="p-8 bg-white border-2 border-[#4C5372]/5 rounded-[3rem] text-[#4C5372] shadow-sm flex items-center gap-6">
-                    <div class="w-14 h-14 bg-amber-50 rounded-[1.5rem] flex items-center justify-center text-amber-500 shrink-0">
-                        <i data-lucide="info" class="w-7 h-7"></i>
+            <div class="mt-8 mb-12">
+                <div class="p-6 sm:p-8 bg-white rounded-2xl sm:rounded-[3rem] text-[#4C5372] shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 bg-amber-50 rounded-2xl sm:rounded-[1.5rem] flex items-center justify-center text-amber-500 shrink-0">
+                        <i data-lucide="info" class="w-6 h-6 sm:w-7 sm:h-7"></i>
                     </div>
                     <div>
                         <h4 class="font-black uppercase text-xs tracking-widest mb-1">Cara Pembayaran</h4>
-                        <p class="text-sm font-medium leading-relaxed opacity-70 italic">Silakan hubungi petugas perpustakaan di meja depan untuk melakukan pembayaran denda agar akses peminjaman kamu segera aktif kembali.</p>
+                        <p class="text-xs sm:text-sm font-medium leading-relaxed opacity-70 italic">Silakan hubungi petugas perpustakaan di meja depan untuk melakukan pembayaran denda agar akses peminjaman kamu segera aktif kembali.</p>
                     </div>
                 </div>
             </div>
 
         </div>
-        
-        <div class="blob-lilac absolute top-0 right-0 -z-10"></div>
     </div>
 
     <script>

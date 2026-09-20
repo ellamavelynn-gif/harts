@@ -2,82 +2,267 @@
 session_start();
 include '../../config/koneksi.php';
 
-// --- KEAMANAN: Cek Session Admin ---
+// Proteksi Halaman
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../login.php");
     exit;
 }
 
+$current_page = 'rak';
+$admin_data   = $_SESSION['admin'];
+$admin_name   = isset($admin_data['nama_petugas']) ? $admin_data['nama_petugas'] : "Admin";
+$initial      = strtoupper(substr($admin_name, 0, 1));
+
+// Validasi Parameter ID (kode_rak)
 if (!isset($_GET['id'])) {
     header("Location: rak.php");
     exit;
 }
 
-// Gunakan intval untuk memastikan ID adalah angka integer
-$id = intval($_GET['id']);
+$kode_rak_param = mysqli_real_escape_string($conn, $_GET['id']);
 
-// --- PERBAIKAN: Gunakan Prepared Statement untuk Select ---
-$stmt = mysqli_prepare($conn, "SELECT * FROM rak WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "i", $id);
+// Prepared Statement untuk Ambil Data Rak
+$stmt = mysqli_prepare($conn, "SELECT * FROM rak WHERE kode_rak = ?");
+mysqli_stmt_bind_param($stmt, "s", $kode_rak_param);
 mysqli_stmt_execute($stmt);
 $query = mysqli_stmt_get_result($stmt);
-
-if (!$query) {
-    die("Query error: " . mysqli_error($conn));
-}
-
-$data = mysqli_fetch_assoc($query);
+$data  = mysqli_fetch_assoc($query);
 
 if (!$data) {
-    header("Location: rak.php");
+    header("Location: rak.php?status=error&msg=Data rak tidak ditemukan ❌");
     exit;
 }
 mysqli_stmt_close($stmt);
+
+// Proses Update Data Rak
+if (isset($_POST['edit'])) {
+    $kode_rak_baru = trim(mysqli_real_escape_string($conn, $_POST['kode_rak']));
+    $lokasi_baru   = trim(mysqli_real_escape_string($conn, $_POST['lokasi']));
+
+    if (empty($kode_rak_baru) || empty($lokasi_baru)) {
+        header("Location: rak.php?status=error&msg=Gagal! Semua kolom wajib diisi ❌");
+        exit;
+    }
+
+    $stmt_update = mysqli_prepare($conn, "UPDATE rak SET kode_rak = ?, lokasi = ? WHERE kode_rak = ?");
+    mysqli_stmt_bind_param($stmt_update, "sss", $kode_rak_baru, $lokasi_baru, $kode_rak_param);
+
+    if (mysqli_stmt_execute($stmt_update)) {
+        header("Location: rak.php?status=success&msg=Data rak berhasil diperbarui! 🎉");
+        exit;
+    } else {
+        header("Location: rak.php?status=error&msg=Gagal memperbarui data rak ❌");
+        exit;
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Edit Rak - HARTS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Rak - HARTS Admin</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #fbcfe8 0%, #e9d5ff 40%, #c3dafe 100%); min-height: 100vh; }
-        .glass-card { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.6); }
+        :root {
+            --soft-blush: #FFDBDA;
+            --old-rose: #DB7F8E;
+            --pale-slate: #D5C5C8;
+            --cool-steel: #9DA3A4;
+            --taupe-grey: #604D53;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--soft-blush); 
+            color: var(--taupe-grey);
+        }
+
+        .sidebar-theme { 
+            background-color: var(--cool-steel); 
+            border-right: 1px solid rgba(96, 77, 83, 0.12); 
+        }
+
+        .nav-item {
+            color: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        .nav-active { 
+            background-color: #ffffff !important; 
+            color: var(--taupe-grey) !important; 
+            box-shadow: 0 4px 14px rgba(96, 77, 83, 0.12); 
+            font-weight: 700;
+        }
+
+        .card-custom { 
+            background-color: #ffffff; 
+            border: 1px solid var(--pale-slate); 
+            box-shadow: 0 10px 25px -5px rgba(96, 77, 83, 0.04);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--old-rose); border-radius: 10px; }
     </style>
 </head>
-<body class="p-10">
-    <div class="max-w-2xl mx-auto">
-        <a href="rak.php" class="text-slate-600 hover:text-blue-600 mb-6 inline-flex items-center font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Kembali
+<body class="min-h-screen flex flex-col md:flex-row antialiased">
+
+    <!-- Mobile Top Header -->
+    <div class="md:hidden flex items-center justify-between p-4 sidebar-theme text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                <i class="fa-solid fa-book-bookmark text-sm"></i>
+            </div>
+            <span class="font-extrabold text-lg uppercase tracking-wider">Harts</span>
+        </div>
+        <button id="toggleSidebar" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white focus:outline-none">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+
+    <!-- Sidebar Menu -->
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-72 h-full sidebar-theme p-6 flex flex-col shadow-sm z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="flex items-center justify-between mb-8 px-2">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl mr-3 shadow-sm flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                    <i class="fa-solid fa-book-bookmark text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight uppercase text-white leading-none">Harts</h1>
+                    <span class="text-[10px] font-semibold tracking-wider text-white/80 uppercase">Library System</span>
+                </div>
+            </div>
+            <button id="closeSidebar" class="md:hidden text-white/80 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <a href="../../profile.php" class="p-3.5 rounded-2xl mb-6 flex items-center transition-all group border border-white/20 bg-white/10 hover:bg-white/20">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm mr-3 text-white transition-transform group-hover:scale-105 shadow-sm" style="background-color: var(--old-rose);">
+                <?= $initial; ?>
+            </div>
+            <div class="overflow-hidden">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-white/70">Petugas</p>
+                <p class="text-sm font-bold leading-tight text-white truncate"><?= htmlspecialchars($admin_name); ?></p>
+            </div>
         </a>
 
-        <div class="glass-card rounded-[2.5rem] p-10 shadow-2xl">
-            <h2 class="text-4xl font-black text-slate-800 mb-2">Edit Rak ✏️</h2>
-            <p class="text-slate-600 mb-8 font-medium">Ubah informasi lokasi rak.</p>
+        <nav class="space-y-1 flex-1 overflow-y-auto pr-1">
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mb-2 text-white/60">Utama</p>
+            <a href="../../index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-house w-6 text-center text-sm mr-2.5"></i> Dashboard
+            </a>
+            
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Layanan & Presensi</p>
+            <a href="../../presensi.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-qrcode w-6 text-center text-sm mr-2.5"></i> Scanner Presensi
+            </a>
+            <a href="../../log_kunjungan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-clipboard-user w-6 text-center text-sm mr-2.5"></i> Log Kunjungan
+            </a>
 
-            <form action="proses_rak.php" method="POST" class="space-y-6">
-                <!-- Hidden input untuk ID -->
-                <input type="hidden" name="id" value="<?= htmlspecialchars($data['id']); ?>">
-                
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Keuangan</p>
+            <a href="../../kas_denda.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-wallet w-6 text-center text-sm mr-2.5"></i> Kas Denda
+            </a>
+
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Katalog & Anggota</p>
+            <a href="../anggota/index.php?page=daftar" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-users w-6 text-center text-sm mr-2.5"></i> Data Anggota
+            </a>
+            <a href="../anggota/index.php?page=validasi" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-user-check w-6 text-center text-sm mr-2.5"></i> Validasi Akun
+            </a>
+            <a href="../buku/index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-book w-6 text-center text-sm mr-2.5"></i> Katalog Buku
+            </a>
+            <a href="rak.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium nav-active">
+                <i class="fa-solid fa-cubes w-6 text-center text-sm mr-2.5"></i> Data Rak
+            </a>
+
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Laporan</p>
+            <a href="../../laporan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-chart-pie w-6 text-center text-sm mr-2.5"></i> Laporan Utama
+            </a>
+        </nav>
+        
+        <a href="../../logout.php" class="px-4 py-3 text-white/90 hover:text-white font-bold flex items-center hover:bg-white/10 rounded-xl mt-auto transition-colors text-sm">
+            <i class="fa-solid fa-arrow-right-from-bracket mr-2.5 text-center w-6"></i> Keluar
+        </a>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 w-full min-w-0 p-4 sm:p-6 lg:p-10 flex items-center justify-center">
+        <div class="max-w-xl w-full card-custom p-6 sm:p-8 lg:p-10 rounded-2xl sm:rounded-3xl relative my-auto">
+            
+            <a href="rak.php" class="absolute top-4 right-4 sm:top-6 sm:right-6 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl transition-colors hover:bg-stone-100" style="color: var(--taupe-grey);">
+                <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
+            </a>
+
+            <div class="mb-6 sm:mb-8 text-center">
+                <h2 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style="color: var(--taupe-grey);">Edit Data Rak <i class="fa-solid fa-pen-to-square text-base sm:text-lg ml-1" style="color: var(--old-rose);"></i></h2>
+                <p class="text-xs sm:text-sm font-medium opacity-80 mt-1 uppercase tracking-wider" style="color: var(--taupe-grey);">Kode Rak: <?= htmlspecialchars($data['kode_rak']); ?></p>
+            </div>
+
+            <form method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Kode Rak</label>
-                    <input type="text" name="kode_rak" value="<?= htmlspecialchars($data['kode_rak']); ?>" required 
-                           class="w-full px-5 py-4 rounded-xl bg-white/50 border border-white/70 focus:ring-2 focus:ring-blue-300 outline-none">
+                    <label class="block text-[10px] font-extrabold uppercase tracking-widest mb-1.5 ml-1 opacity-70" style="color: var(--taupe-grey);">Kode Rak</label>
+                    <input type="text" name="kode_rak" value="<?= htmlspecialchars($data['kode_rak']); ?>" required placeholder="Contoh: RAK-01" 
+                           class="w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border outline-none font-semibold text-xs sm:text-sm transition-all focus:bg-stone-50" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Lokasi / Lantai</label>
-                    <input type="text" name="lokasi" value="<?= htmlspecialchars($data['lokasi']); ?>" required 
-                           class="w-full px-5 py-4 rounded-xl bg-white/50 border border-white/70 focus:ring-2 focus:ring-blue-300 outline-none">
+                    <label class="block text-[10px] font-extrabold uppercase tracking-widest mb-1.5 ml-1 opacity-70" style="color: var(--taupe-grey);">Lokasi / Keterangan Lantai</label>
+                    <input type="text" name="lokasi" value="<?= htmlspecialchars($data['lokasi']); ?>" required placeholder="Contoh: Lantai 2" 
+                           class="w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border outline-none font-semibold text-xs sm:text-sm transition-all focus:bg-stone-50" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
                 </div>
 
-                <button type="submit" name="edit" class="w-full bg-amber-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-amber-600 transition-all">
-                    SIMPAN PERUBAHAN
-                </button>
+                <div class="pt-4 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+                    <button type="submit" name="edit" class="flex-1 py-3 sm:py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm text-white shadow-sm hover:opacity-90 active:scale-95 transition-all uppercase tracking-wider" style="background-color: var(--old-rose);">
+                        <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Perbarui
+                    </button>
+                    <a href="rak.php" class="flex-1 py-3 sm:py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm text-center border transition-all uppercase tracking-wider hover:bg-stone-100" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
+                        Batal
+                    </a>
+                </div>
             </form>
         </div>
-    </div>
+    </main>
+
+    <!-- Script Drawer Toggle Sidebar -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggleSidebar');
+        const closeSidebarBtn = document.getElementById('closeSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        }
+
+        toggleSidebarBtn?.addEventListener('click', openSidebar);
+        closeSidebarBtn?.addEventListener('click', closeSidebar);
+        overlay?.addEventListener('click', closeSidebar);
+    </script>
 </body>
 </html>

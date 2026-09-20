@@ -8,10 +8,10 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-// Data Admin untuk Sidebar
-$admin_data = $_SESSION['admin'];
-$admin_name = isset($admin_data['nama_petugas']) ? $admin_data['nama_petugas'] : "Admin";
-$initial    = strtoupper(substr($admin_name, 0, 1));
+$current_page = 'rak';
+$admin_data   = $_SESSION['admin'];
+$admin_name   = isset($admin_data['nama_petugas']) ? $admin_data['nama_petugas'] : "Admin";
+$initial      = strtoupper(substr($admin_name, 0, 1));
 
 // Proses Simpan Data
 if (isset($_POST['simpan'])) {
@@ -46,112 +46,207 @@ if (isset($_POST['simpan'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tambah Rak - HARTS</title>
+    <title>Tambah Rak - HARTS Admin</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
+        :root {
+            --soft-blush: #FFDBDA;
+            --old-rose: #DB7F8E;
+            --pale-slate: #D5C5C8;
+            --cool-steel: #9DA3A4;
+            --taupe-grey: #604D53;
+        }
+
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: linear-gradient(135deg, #fbcfe8 0%, #e9d5ff 40%, #c3dafe 100%);
-            height: 100vh;
-            overflow: hidden;
+            background-color: var(--soft-blush); 
+            color: var(--taupe-grey);
         }
-        .glass-sidebar { background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(20px); border-right: 1px solid rgba(255, 255, 255, 0.5); }
-        .glass-card { background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.7); }
+
+        .sidebar-theme { 
+            background-color: var(--cool-steel); 
+            border-right: 1px solid rgba(96, 77, 83, 0.12); 
+        }
+
+        .nav-item {
+            color: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        .nav-active { 
+            background-color: #ffffff !important; 
+            color: var(--taupe-grey) !important; 
+            box-shadow: 0 4px 14px rgba(96, 77, 83, 0.12); 
+            font-weight: 700;
+        }
+
+        .card-custom { 
+            background-color: #ffffff; 
+            border: 1px solid var(--pale-slate); 
+            box-shadow: 0 10px 25px -5px rgba(96, 77, 83, 0.04);
+        }
+
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--old-rose); border-radius: 10px; }
     </style>
 </head>
-<body class="flex">
+<body class="min-h-screen flex flex-col md:flex-row antialiased">
 
-    <div class="w-80 h-full glass-sidebar p-8 flex flex-col shadow-2xl relative z-50">
-        <div class="flex items-center mb-10">
-            <div class="bg-blue-600 p-2 rounded-xl mr-3 shadow-lg">
-                <span class="text-white font-black text-xl">H</span>
+    <!-- Mobile Top Header -->
+    <div class="md:hidden flex items-center justify-between p-4 sidebar-theme text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                <i class="fa-solid fa-book-bookmark text-sm"></i>
             </div>
-            <h1 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">Harts</h1>
+            <span class="font-extrabold text-lg uppercase tracking-wider">Harts</span>
         </div>
+        <button id="toggleSidebar" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white focus:outline-none">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
 
-        <a href="../../profile.php" class="bg-white/40 border border-white/60 p-5 rounded-[2.5rem] mb-10 flex items-center shadow-sm hover:bg-white/70 transition-all cursor-pointer group">
-            <div class="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl mr-4 shadow-lg group-hover:scale-110 transition-transform">
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+
+    <!-- Sidebar Menu -->
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-72 h-full sidebar-theme p-6 flex flex-col shadow-sm z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="flex items-center justify-between mb-8 px-2">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl mr-3 shadow-sm flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                    <i class="fa-solid fa-book-bookmark text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight uppercase text-white leading-none">Harts</h1>
+                    <span class="text-[10px] font-semibold tracking-wider text-white/80 uppercase">Library System</span>
+                </div>
+            </div>
+            <button id="closeSidebar" class="md:hidden text-white/80 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <a href="../../profile.php" class="p-3.5 rounded-2xl mb-6 flex items-center transition-all group border border-white/20 bg-white/10 hover:bg-white/20">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm mr-3 text-white transition-transform group-hover:scale-105 shadow-sm" style="background-color: var(--old-rose);">
                 <?= $initial; ?>
             </div>
             <div class="overflow-hidden">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin</p>
-                <p class="text-lg font-bold text-slate-800 leading-tight truncate"><?= htmlspecialchars($admin_name); ?></p>
+                <p class="text-[10px] font-bold uppercase tracking-widest text-white/70">Petugas</p>
+                <p class="text-sm font-bold leading-tight text-white truncate"><?= htmlspecialchars($admin_name); ?></p>
             </div>
         </a>
 
-        <nav class="space-y-2 flex-1 overflow-y-auto pr-2">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mb-2">Main Menu</p>
-            <a href="../../index.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all border border-transparent hover:border-white group">
-                <span class="mr-4 group-hover:scale-125 transition-transform">🏠</span> Dashboard
+        <nav class="space-y-1 flex-1 overflow-y-auto pr-1">
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mb-2 text-white/60">Utama</p>
+            <a href="../../index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-house w-6 text-center text-sm mr-2.5"></i> Dashboard
             </a>
             
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Layanan</p>
-            <a href="../../presensi.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all border border-transparent hover:border-white group">
-                <span class="mr-4 group-hover:scale-125 transition-transform">⏱️</span> Presensi Siswa
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Layanan & Presensi</p>
+            <a href="../../presensi.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-qrcode w-6 text-center text-sm mr-2.5"></i> Scanner Presensi
             </a>
-            
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Manajemen User</p>
-            <a href="../anggota/index.php?page=daftar" class="flex items-center p-4 text-slate-600 hover:bg-white/50 border border-transparent hover:border-white rounded-2xl transition-all group">
-                <span class="mr-4 group-hover:scale-125 transition-transform">👥</span> Data Anggota
-            </a>
-            <a href="../anggota/index.php?page=validasi" class="flex items-center p-4 text-slate-600 hover:bg-white/50 border border-transparent hover:border-white rounded-2xl transition-all group">
-                <span class="mr-4 group-hover:scale-125 transition-transform">✅</span> Validasi Akun
-            </a>
-            
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Katalog</p>
-            <a href="../buku/index.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-                <span class="mr-4 group-hover:scale-125 transition-transform">📚</span> Katalog Buku
-            </a>
-            <a href="rak.php" class="flex items-center p-4 border-2 bg-blue-600 text-white font-bold shadow-xl shadow-blue-200 border-blue-600 rounded-2xl transition-all group">
-                <span class="mr-4 group-hover:scale-125 transition-transform">🗄️</span> Data Rak
+            <a href="../../log_kunjungan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-clipboard-user w-6 text-center text-sm mr-2.5"></i> Log Kunjungan
             </a>
 
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Laporan</p>
-            <a href="../../laporan.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-                <span class="mr-4 group-hover:scale-125 transition-transform">📊</span> Laporan Peminjaman
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Keuangan</p>
+            <a href="../../kas_denda.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-wallet w-6 text-center text-sm mr-2.5"></i> Kas Denda
+            </a>
+
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Katalog & Anggota</p>
+            <a href="../anggota/index.php?page=daftar" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-users w-6 text-center text-sm mr-2.5"></i> Data Anggota
+            </a>
+            <a href="../anggota/index.php?page=validasi" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-user-check w-6 text-center text-sm mr-2.5"></i> Validasi Akun
+            </a>
+            <a href="../buku/index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-book w-6 text-center text-sm mr-2.5"></i> Katalog Buku
+            </a>
+            <a href="rak.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium nav-active">
+                <i class="fa-solid fa-cubes w-6 text-center text-sm mr-2.5"></i> Data Rak
+            </a>
+
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Laporan</p>
+            <a href="../../laporan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-chart-pie w-6 text-center text-sm mr-2.5"></i> Laporan Utama
             </a>
         </nav>
-
-        <a href="../../logout.php" class="p-4 text-red-500 font-bold flex items-center hover:bg-red-50/50 rounded-2xl transition-all mt-auto group">
-            <span class="mr-4 group-hover:rotate-12 transition-transform">🚪</span> Keluar
-        </a>
-    </div>
-
-    <div class="flex-1 h-full flex items-center justify-center p-12 bg-white/5 overflow-y-auto">
         
-        <div class="max-w-xl w-full glass-card p-12 rounded-[3.5rem] shadow-2xl relative my-auto">
-            
-            <a href="rak.php" class="absolute top-8 right-8 w-10 h-10 flex items-center justify-center bg-white/50 rounded-full text-slate-500 hover:bg-red-500 hover:text-white transition-all shadow-sm">✕</a>
+        <a href="../../logout.php" class="px-4 py-3 text-white/90 hover:text-white font-bold flex items-center hover:bg-white/10 rounded-xl mt-auto transition-colors text-sm">
+            <i class="fa-solid fa-arrow-right-from-bracket mr-2.5 text-center w-6"></i> Keluar
+        </a>
+    </aside>
 
-            <div class="mb-10">
-                <h2 class="text-3xl font-black text-slate-800 tracking-tight">Tambah Rak 📦</h2>
-                <p class="text-slate-500 font-medium mt-2">Masukkan detail lokasi rak dengan lengkap.</p>
+    <!-- Main Content Area -->
+    <main class="flex-1 w-full min-w-0 p-4 sm:p-6 lg:p-10 flex items-center justify-center">
+        <div class="max-w-xl w-full card-custom p-6 sm:p-8 lg:p-10 rounded-2xl sm:rounded-3xl relative my-auto">
+            
+            <a href="rak.php" class="absolute top-4 right-4 sm:top-6 sm:right-6 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl transition-colors hover:bg-stone-100" style="color: var(--taupe-grey);">
+                <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
+            </a>
+
+            <div class="mb-6 sm:mb-8 text-center">
+                <h2 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style="color: var(--taupe-grey);">Tambah Rak Buku <i class="fa-solid fa-folder-plus text-base sm:text-lg ml-1" style="color: var(--old-rose);"></i></h2>
+                <p class="text-xs sm:text-sm font-medium opacity-80 mt-1" style="color: var(--taupe-grey);">Masukkan kode dan rincian lokasi rak baru.</p>
             </div>
 
-            <form method="POST" class="space-y-8">
+            <form method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Kode Rak</label>
+                    <label class="block text-[10px] font-extrabold uppercase tracking-widest mb-1.5 ml-1 opacity-70" style="color: var(--taupe-grey);">Kode Rak</label>
                     <input type="text" name="kode_rak" required placeholder="Contoh: RAK-01" 
-                           class="w-full px-6 py-5 rounded-2xl bg-white/60 border border-white/80 focus:bg-white outline-none transition-all font-semibold text-lg shadow-sm focus:ring-4 focus:ring-blue-100">
+                           class="w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border outline-none font-semibold text-xs sm:text-sm transition-all focus:bg-stone-50" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Lokasi / Keterangan Lantai</label>
-                    <input type="text" name="lokasi" required placeholder="Contoh: Lantai 2 Gedung Perpustakaan" 
-                           class="w-full px-6 py-5 rounded-2xl bg-white/60 border border-white/80 focus:bg-white outline-none transition-all font-semibold text-lg shadow-sm focus:ring-4 focus:ring-blue-100">
+                    <label class="block text-[10px] font-extrabold uppercase tracking-widest mb-1.5 ml-1 opacity-70" style="color: var(--taupe-grey);">Lokasi / Keterangan Lantai</label>
+                    <input type="text" name="lokasi" required placeholder="Contoh: Lantai 2 - Sektor Barat" 
+                           class="w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border outline-none font-semibold text-xs sm:text-sm transition-all focus:bg-stone-50" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
                 </div>
 
-                <div class="pt-4">
-                    <button type="submit" name="simpan" class="w-full py-5 rounded-[2rem] font-black text-lg text-white bg-blue-600 shadow-xl shadow-blue-200 hover:scale-[1.02] active:scale-95 transition-all">
-                        SIMPAN DATA RAK
+                <div class="pt-4 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+                    <button type="submit" name="simpan" class="w-full py-3 sm:py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm text-white shadow-sm hover:opacity-90 active:scale-95 transition-all uppercase tracking-wider" style="background-color: var(--old-rose);">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Simpan Data Rak
                     </button>
+                    <a href="rak.php" class="w-full py-3 sm:py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm text-center border transition-all uppercase tracking-wider hover:bg-stone-100" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
+                        Batal
+                    </a>
                 </div>
             </form>
         </div>
-    </div>
+    </main>
 
+    <!-- Script Drawer Toggle Sidebar -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggleSidebar');
+        const closeSidebarBtn = document.getElementById('closeSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        }
+
+        toggleSidebarBtn?.addEventListener('click', openSidebar);
+        closeSidebarBtn?.addEventListener('click', closeSidebar);
+        overlay?.addEventListener('click', closeSidebar);
+    </script>
 </body>
 </html>

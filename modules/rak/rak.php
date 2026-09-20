@@ -8,186 +8,314 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-// Ambil data admin dari session
-$admin_data = $_SESSION['admin'];
-$admin_name = isset($admin_data['nama_petugas']) ? $admin_data['nama_petugas'] : "Admin";
-$initial    = strtoupper(substr($admin_name, 0, 1));
+$current_page = 'rak';
+$admin_data   = $_SESSION['admin'];
+$admin_name   = isset($admin_data['nama_petugas']) ? $admin_data['nama_petugas'] : "Admin";
+$initial      = strtoupper(substr($admin_name, 0, 1));
 
-// FIX QUERY: Gue ganti r.id jadi r.kode_rak sesuai error lo
+// Query Data Rak + Jumlah Koleksi Buku
 $sql = "SELECT r.*, COUNT(b.id_buku) as total_buku 
         FROM rak r 
         LEFT JOIN buku b ON r.kode_rak = b.id_rak 
         GROUP BY r.kode_rak"; 
 $query_rak = mysqli_query($conn, $sql);
 
-// Cek jika query gagal
 if (!$query_rak) {
     die("Error pada database: " . mysqli_error($conn));
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Rak - HARTS</title>
+    <title>Data Rak Buku - HARTS Admin</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
+        :root {
+            --soft-blush: #FFDBDA;
+            --old-rose: #DB7F8E;
+            --pale-slate: #D5C5C8;
+            --cool-steel: #9DA3A4;
+            --taupe-grey: #604D53;
+        }
+
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: linear-gradient(135deg, #fbcfe8 0%, #e9d5ff 40%, #c3dafe 100%);
-            height: 100vh;
-            overflow: hidden;
+            background-color: var(--soft-blush); 
+            color: var(--taupe-grey);
         }
-        .glass-sidebar { background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(20px); border-right: 1px solid rgba(255, 255, 255, 0.5); }
-        .glass-card { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.6); }
+
+        .sidebar-theme { 
+            background-color: var(--cool-steel); 
+            border-right: 1px solid rgba(96, 77, 83, 0.12); 
+        }
+
+        .nav-item {
+            color: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        .nav-active { 
+            background-color: #ffffff !important; 
+            color: var(--taupe-grey) !important; 
+            box-shadow: 0 4px 14px rgba(96, 77, 83, 0.12); 
+            font-weight: 700;
+        }
+
+        .card-custom { 
+            background-color: #ffffff; 
+            border: 1px solid var(--pale-slate); 
+            box-shadow: 0 10px 25px -5px rgba(96, 77, 83, 0.04);
+        }
+
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--old-rose); border-radius: 10px; }
     </style>
 </head>
-<body class="flex">
+<body class="min-h-screen flex flex-col md:flex-row antialiased">
 
-    <div class="w-80 h-full glass-sidebar p-8 flex flex-col shadow-2xl relative z-50">
-        <div class="flex items-center mb-10">
-            <div class="bg-blue-600 p-2 rounded-xl mr-3 shadow-lg">
-                <span class="text-white font-black text-xl">H</span>
+    <!-- Mobile Top Header -->
+    <div class="md:hidden flex items-center justify-between p-4 sidebar-theme text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                <i class="fa-solid fa-book-bookmark text-sm"></i>
             </div>
-            <h1 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">Harts</h1>
+            <span class="font-extrabold text-lg uppercase tracking-wider">Harts</span>
         </div>
+        <button id="toggleSidebar" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white focus:outline-none">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
 
-        <a href="../../profile.php" class="bg-white/40 border border-white/60 p-5 rounded-[2.5rem] mb-10 flex items-center shadow-sm hover:bg-white/70 transition-all cursor-pointer group">
-            <div class="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl mr-4 shadow-lg group-hover:scale-110 transition-transform">
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+
+    <!-- Sidebar Menu -->
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-72 h-full sidebar-theme p-6 flex flex-col shadow-sm z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <!-- Logo -->
+        <div class="flex items-center justify-between mb-8 px-2">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl mr-3 shadow-sm flex items-center justify-center text-white" style="background-color: var(--taupe-grey);">
+                    <i class="fa-solid fa-book-bookmark text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight uppercase text-white leading-none">Harts</h1>
+                    <span class="text-[10px] font-semibold tracking-wider text-white/80 uppercase">Library System</span>
+                </div>
+            </div>
+            <button id="closeSidebar" class="md:hidden text-white/80 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- User Badge -->
+        <a href="../../profile.php" class="p-3.5 rounded-2xl mb-6 flex items-center transition-all group border border-white/20 bg-white/10 hover:bg-white/20">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm mr-3 text-white transition-transform group-hover:scale-105 shadow-sm" style="background-color: var(--old-rose);">
                 <?= $initial; ?>
             </div>
             <div class="overflow-hidden">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin</p>
-                <p class="text-lg font-bold text-slate-800 leading-tight truncate"><?= htmlspecialchars($admin_name); ?></p>
+                <p class="text-[10px] font-bold uppercase tracking-widest text-white/70">Petugas</p>
+                <p class="text-sm font-bold leading-tight text-white truncate"><?= htmlspecialchars($admin_name); ?></p>
             </div>
         </a>
-<nav class="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mb-2">Main Menu</p>
-    
-    <a href="../../index.php" class="flex items-center p-4 rounded-2xl transition-all group text-slate-600 hover:bg-white/50 border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">🏠</span> Dashboard
-    </a>
-    
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Layanan & Scanner</p>
-    
-    <a href="../../presensi.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">⏱️</span> Presensi Siswa
-    </a>
-    
-    <a href="../../log_kunjungan.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">📋</span> Log Kunjungan
-    </a>
 
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Manajemen Keuangan</p>
-    
-    <a href="../../kas_denda.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">💰</span> Kas Denda
-    </a>
+        <!-- Navigation Links -->
+        <nav class="space-y-1 flex-1 overflow-y-auto pr-1">
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mb-2 text-white/60">Utama</p>
+            
+            <a href="../../index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-house w-6 text-center text-sm mr-2.5"></i> Dashboard
+            </a>
+            
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Layanan & Presensi</p>
+            
+            <a href="../../presensi.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-qrcode w-6 text-center text-sm mr-2.5"></i> Scanner Presensi
+            </a>
+            
+            <a href="../../log_kunjungan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-clipboard-user w-6 text-center text-sm mr-2.5"></i> Log Kunjungan
+            </a>
 
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Katalog & User</p>
-    
-    <a href="../anggota/index.php?page=daftar" class="flex items-center p-4 text-slate-600 hover:bg-white/50 border border-transparent hover:border-white rounded-2xl transition-all group">
-        <span class="mr-4 group-hover:scale-125 transition-transform">👥</span> Data Anggota
-    </a>
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Keuangan</p>
+            
+            <a href="../../kas_denda.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-wallet w-6 text-center text-sm mr-2.5"></i> Kas Denda
+            </a>
 
-    <a href="../anggota/index.php?page=validasi" class="flex items-center p-4 text-slate-600 hover:bg-white/50 border border-transparent hover:border-white rounded-2xl transition-all group">
-        <span class="mr-4 group-hover:scale-125 transition-transform">✅</span> Validasi Akun
-    </a>
-    
-    <a href="../buku/index.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">📚</span> Katalog Buku
-    </a>
-    
-    <a href="rak.php" class="flex items-center p-4 border-2 bg-blue-600 text-white font-bold shadow-xl border-blue-600 rounded-2xl transition-all group">
-        <span class="mr-4 group-hover:scale-125 transition-transform">🗄️</span> Data Rak
-    </a>
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Katalog & Anggota</p>
+            
+            <a href="../anggota/index.php?page=daftar" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-users w-6 text-center text-sm mr-2.5"></i> Data Anggota
+            </a>
 
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-4 mt-6 mb-2">Laporan</p>
-    
-    <a href="../../laporan.php" class="flex items-center p-4 text-slate-600 hover:bg-white/50 rounded-2xl transition-all group border border-transparent hover:border-white">
-        <span class="mr-4 group-hover:scale-125 transition-transform">📊</span> Laporan Utama
-    </a>
-</nav>
-<a href="../../logout.php" class="p-4 text-red-500 font-bold flex items-center hover:bg-red-50/50 rounded-2xl transition-all mt-auto group">
-    <span class="mr-4 group-hover:rotate-12 transition-transform">🚪</span> Keluar
-</a>
-    </div>
+            <a href="../anggota/index.php?page=validasi" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-user-check w-6 text-center text-sm mr-2.5"></i> Validasi Akun
+            </a>
+            
+            <a href="../buku/index.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-book w-6 text-center text-sm mr-2.5"></i> Katalog Buku
+            </a>
 
-    <div class="flex-1 h-full overflow-y-auto p-12 bg-white/5">
+            <a href="rak.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium nav-active">
+                <i class="fa-solid fa-cubes w-6 text-center text-sm mr-2.5"></i> Data Rak
+            </a>
+
+            <p class="text-[10px] font-extrabold uppercase tracking-widest ml-3 mt-6 mb-2 text-white/60">Laporan</p>
+            
+            <a href="../../laporan.php" class="nav-item flex items-center px-4 py-2.5 rounded-xl text-sm font-medium">
+                <i class="fa-solid fa-chart-pie w-6 text-center text-sm mr-2.5"></i> Laporan Utama
+            </a>
+        </nav>
+        
+        <!-- Logout -->
+        <a href="../../logout.php" class="px-4 py-3 text-white/90 hover:text-white font-bold flex items-center hover:bg-white/10 rounded-xl mt-auto transition-colors text-sm">
+            <i class="fa-solid fa-arrow-right-from-bracket mr-2.5 text-center w-6"></i> Keluar
+        </a>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 w-full min-w-0 p-4 sm:p-6 lg:p-10 overflow-y-auto">
         <div class="max-w-7xl mx-auto">
             
-            <div class="flex justify-between items-end mb-10">
+            <!-- Header Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
                 <div>
-                    <h2 class="text-5xl font-black text-slate-800 tracking-tight">Data Rak Buku 🗄️</h2>
-                    <p class="text-slate-500 font-medium mt-2 text-xl">Kelola lokasi penyimpanan buku.</p>
+                    <h2 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style="color: var(--taupe-grey);">Data Rak Buku <i class="fa-solid fa-cubes text-lg sm:text-xl ml-1" style="color: var(--old-rose);"></i></h2>
+                    <p class="text-xs sm:text-sm font-medium opacity-80 mt-1" style="color: var(--taupe-grey);">Kelola lokasi penyimpanan dan tata letak koleksi buku.</p>
                 </div>
-                <a href="tambah_rak.php" class="bg-blue-600 text-white px-8 py-4 rounded-[1.5rem] font-black shadow-xl hover:scale-105 transition-all active:scale-95">
-                    + RAK BARU
+                <a href="tambah_rak.php" class="inline-flex items-center justify-center px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm text-white shadow-sm hover:opacity-90 active:scale-95 transition-all uppercase tracking-wider self-start sm:self-auto" style="background-color: var(--old-rose);">
+                    <i class="fa-solid fa-plus mr-2"></i> Rak Baru
                 </a>
             </div>
 
-            <div class="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/50">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-white/30 text-slate-400 text-[11px] uppercase tracking-[0.2em] font-black">
-                            <th class="px-8 py-6">No</th>
-                            <th class="px-8 py-6">Kode Rak</th>
-                            <th class="px-8 py-6">Lokasi / Lantai</th>
-                            <th class="px-8 py-6 text-center">Isi Koleksi</th>
-                            <th class="px-8 py-6 text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/20">
-                        <?php 
-                        if($query_rak && mysqli_num_rows($query_rak) > 0): 
-                            $no = 1;
-                            while($row = mysqli_fetch_assoc($query_rak)): ?>
-                            <tr class="hover:bg-white/40 transition-colors text-slate-700">
-                                <td class="px-8 py-6 text-slate-400 font-bold"><?= $no++; ?></td>
-                                <td class="px-8 py-6">
-                                    <span class="bg-white/50 px-4 py-2 rounded-xl font-black text-slate-800 border border-white/60">
-                                        <?= htmlspecialchars($row['kode_rak']); ?>
-                                    </span>
-                                </td>
-                                <td class="px-8 py-6 font-semibold text-slate-600"><?= htmlspecialchars($row['lokasi']); ?></td>
-                                
-                                <td class="px-8 py-6 text-center">
-                                    <span class="text-blue-600 font-black"><?= $row['total_buku']; ?></span>
-                                    <span class="text-[10px] text-slate-400 font-bold uppercase ml-1">Judul</span>
-                                </td>
+            <!-- Tabel Data Rak -->
+            <div class="card-custom rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+                <div class="overflow-x-auto w-full">
+                    <table class="w-full text-left border-collapse min-w-[500px]">
+                        <thead>
+                            <tr class="border-b text-[10px] uppercase tracking-widest font-extrabold" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
+                                <th class="pb-4 px-3 sm:px-4">No</th>
+                                <th class="pb-4 px-3 sm:px-4">Kode Rak</th>
+                                <th class="pb-4 px-3 sm:px-4">Lokasi / Keterangan</th>
+                                <th class="pb-4 px-3 sm:px-4 text-center">Isi Koleksi</th>
+                                <th class="pb-4 px-3 sm:px-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-xs sm:text-sm font-semibold" style="border-color: var(--pale-slate); color: var(--taupe-grey);">
+                            <?php 
+                            if($query_rak && mysqli_num_rows($query_rak) > 0): 
+                                $no = 1;
+                                while($row = mysqli_fetch_assoc($query_rak)): ?>
+                                <tr class="hover:bg-stone-50 transition-colors">
+                                    <td class="py-3 sm:py-4 px-3 sm:px-4 font-bold opacity-60"><?= $no++; ?></td>
+                                    <td class="py-3 sm:py-4 px-3 sm:px-4">
+                                        <span class="px-2.5 py-1 rounded-xl font-bold text-[11px] sm:text-xs uppercase border" style="background-color: var(--soft-blush); border-color: var(--pale-slate); color: var(--taupe-grey);">
+                                            <?= htmlspecialchars($row['kode_rak']); ?>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 sm:py-4 px-3 sm:px-4 font-semibold"><?= htmlspecialchars($row['lokasi']); ?></td>
+                                    
+                                    <td class="py-3 sm:py-4 px-3 sm:px-4 text-center">
+                                        <span class="font-bold text-sm sm:text-base" style="color: var(--old-rose);"><?= $row['total_buku']; ?></span>
+                                        <span class="text-[10px] font-bold uppercase ml-1 opacity-70">Judul</span>
+                                    </td>
 
-                                <td class="px-8 py-6">
-                                    <div class="flex justify-center gap-2">
-                                        <a href="edit_rak.php?id=<?= $row['kode_rak']; ?>" class="w-9 h-9 bg-white shadow-sm flex items-center justify-center rounded-lg hover:bg-blue-600 hover:text-white transition-all transform active:scale-90" title="Edit">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </a>
-                                        <a href="hapus_rak.php?id=<?= $row['kode_rak']; ?>" onclick="return confirm('Hapus rak ini?')" class="w-9 h-9 bg-white shadow-sm flex items-center justify-center rounded-lg hover:bg-red-500 hover:text-white transition-all transform active:scale-90" title="Hapus">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="5" class="px-8 py-20 text-center font-bold text-slate-400 italic">
-                                    Belum ada data rak.
-                                </td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                                    <td class="py-3 sm:py-4 px-3 sm:px-4 text-center">
+                                        <div class="flex justify-center gap-2">
+                                            <a href="edit_rak.php?id=<?= urlencode($row['kode_rak']); ?>" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border transition-all hover:bg-stone-100" style="border-color: var(--pale-slate); color: var(--taupe-grey);" title="Edit Rak">
+                                                <i class="fa-solid fa-pen-to-square text-xs sm:text-sm"></i>
+                                            </a>
+                                            <button onclick="confirmDelete('<?= $row['kode_rak']; ?>')" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border transition-all hover:bg-red-50 text-red-500" style="border-color: var(--pale-slate);" title="Hapus Rak">
+                                                <i class="fa-solid fa-trash-can text-xs sm:text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="5" class="py-12 text-center text-xs sm:text-sm font-semibold italic opacity-60">
+                                        Belum ada data rak buku.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div> 
         </div>
-    </div>
+    </main>
 
+    <!-- Script Drawer Toggle Sidebar & Alert -->
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggleSidebar');
+        const closeSidebarBtn = document.getElementById('closeSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        }
+
+        toggleSidebarBtn?.addEventListener('click', openSidebar);
+        closeSidebarBtn?.addEventListener('click', closeSidebar);
+        overlay?.addEventListener('click', closeSidebar);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('status');
+        const msg = urlParams.get('msg');
+
+        if (status === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: msg || 'Data rak berhasil diproses.',
+                confirmButtonColor: '#DB7F8E'
+            });
+        } else if (status === 'error') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal!',
+                text: msg || 'Terjadi kesalahan sistem.',
+                confirmButtonColor: '#DB7F8E'
+            });
+        }
+
+        function confirmDelete(kode) {
+            Swal.fire({
+                title: 'Hapus Rak?',
+                text: `Apakah Anda yakin ingin menghapus rak ${kode}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#DB7F8E',
+                cancelButtonColor: '#9DA3A4',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `hapus_rak.php?id=${kode}`;
+                }
+            });
+        }
+    </script>
 </body>
 </html>

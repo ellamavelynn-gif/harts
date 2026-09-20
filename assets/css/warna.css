@@ -9,15 +9,14 @@
 
 /* --- Base Layout --- */
 body { 
-    background-color: var(--color-cream) !important; /* Paksa Krem */
+    background-color: var(--color-cream) !important;
     font-family: 'Plus Jakarta Sans', sans-serif;
     color: var(--color-dark);
-    margin: 0; padding: 0; height: 100vh; overflow: hidden;
-}
-
-/* --- Global Text Reset (Biar Kelihatan) --- */
-h1, h2, h3, h4, h5, p, span, div, label, td, th {
-    color: var(--color-dark); /* Paksa semua teks jadi gelap */
+    margin: 0; 
+    padding: 0; 
+    min-height: 100vh; 
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
 }
 
 /* --- Sidebar Style --- */
@@ -35,83 +34,59 @@ h1, h2, h3, h4, h5, p, span, div, label, td, th {
     align-items: center;
 }
 
-/* Menu Aktif (Background Gelap, Teks Putih) */
-.nav-item-active {
-    background-color: var(--color-dark) !important;
-    border-radius: 1rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 21, 112, 0.3);
-}
-/* Menu Aktif (Background Gelap, Teks Putih) */
+/* Menu Aktif */
 .nav-item-active {
     background-color: var(--color-dark) !important;
     border-radius: 1rem;
     box-shadow: 0 10px 15px -3px rgba(0, 21, 112, 0.3);
 }
 
-/* Tambahkan baris ini untuk memaksa teks di dalam span jadi putih */
 .nav-item-active span,
 .nav-item-active .nav-link, 
 .nav-item-active .nav-link span {
     color: #FFFFFF !important; 
 }
-.nav-item-active .nav-link, 
-.nav-item-active .nav-link span {
-    color: #FFFFFF !important; /* Teks jadi putih cuma pas aktif */
-}
-/* Memaksa semua ikon di dalam menu aktif jadi putih */
+
 .nav-item-active i,
 .nav-item-active svg {
     color: #FFFFFF !important;
-    stroke: #FFFFFF !important; /* Lucide pakai stroke untuk warnanya */
-}
-.nav-item-active i {
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
-    color: #FFFFFF !important;
+    stroke: #FFFFFF !important;
 }
 
-/* --- Card Buku --- */
-.glass-card { 
-    background: rgba(255, 255, 255, 0.7); 
-    backdrop-filter: blur(15px); 
-    border: 1px solid rgba(76, 83, 114, 0.15); 
-    border-radius: 2.5rem;
-    padding: 1.5rem;
-}
-
-.glass-card h3 { 
-    color: var(--color-dark) !important; 
-    font-weight: 800;
-}
-
-.glass-card p { 
-    color: var(--color-slate) !important; 
-    opacity: 1; /* Pastikan tidak transparan */
+/* --- Card Login Khusus --- */
+.card-login {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(226, 212, 224, 0.5);
+    box-shadow: 0 20px 40px -15px rgba(76, 83, 114, 0.15);
 }
 
 /* --- Form Input --- */
 .input-field {
-    background-color: white !important;
-    border: 2px solid var(--color-lilac) !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid var(--color-lilac) !important;
     color: var(--color-dark) !important;
-    border-radius: 1rem;
+    border-radius: 0.85rem;
 }
 
 .input-field:focus {
     border-color: var(--color-dark) !important;
+    box-shadow: 0 0 0 3px rgba(76, 83, 114, 0.1);
     outline: none;
 }
 
-/* --- Tombol Pinjam --- */
-.btn-pinjam {
+/* --- Tombol Login --- */
+.btn-login {
     background-color: var(--color-dark) !important;
-    color: rgb(230, 212, 212) !important;
+    color: #FFFDF6 !important;
     font-weight: 800;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
-.btn-pinjam:hover {
-    background-color: var(--color-slate) !important;
-    transform: translateY(-2px);
+.btn-login:hover {
+    background-color: #3b415a !important;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px -5px rgba(76, 83, 114, 0.3);
 }
 
 /* --- Blob Corak (Di Belakang) --- */
@@ -124,5 +99,5 @@ body::before {
 body::after {
     content: ''; position: absolute; width: 400px; height: 400px;
     background-color: var(--color-pastel); top: -100px; right: -100px;
-    border-radius: 50%; z-index: -1; opacity: 0.3;
+    border-radius: 50%; z-index: -1; opacity: 0.15;
 }
