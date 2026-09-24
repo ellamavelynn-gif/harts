@@ -1,0 +1,103 @@
+/* --- Palet Warna NEXTPURE (Clean & Contrast) --- */
+:root {
+    --color-cream: #FFFDF6;   /* Background Utama */
+    --color-lilac: #E2D4E0;   /* Corak Lilac */
+    --color-pastel: #041e86;  /* Abu Pastel */
+    --color-slate: #c5aae8;   /* Slate Blue */
+    --color-dark: #4C5372;    /* WARNA FONT UTAMA (GELAP) */
+}
+
+/* --- Base Layout --- */
+body { 
+    background-color: var(--color-cream) !important;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--color-dark);
+    margin: 0; 
+    padding: 0; 
+    min-height: 100vh; 
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+/* --- Sidebar Style --- */
+#accordian {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(76, 83, 114, 0.1);
+}
+
+/* Menu Navigasi */
+.nav-link { 
+    color: var(--color-dark) !important; 
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+/* Menu Aktif */
+.nav-item-active {
+    background-color: var(--color-dark) !important;
+    border-radius: 1rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 21, 112, 0.3);
+}
+
+.nav-item-active span,
+.nav-item-active .nav-link, 
+.nav-item-active .nav-link span {
+    color: #FFFFFF !important; 
+}
+
+.nav-item-active i,
+.nav-item-active svg {
+    color: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+}
+
+/* --- Card Login Khusus --- */
+.card-login {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(226, 212, 224, 0.5);
+    box-shadow: 0 20px 40px -15px rgba(76, 83, 114, 0.15);
+}
+
+/* --- Form Input --- */
+.input-field {
+    background-color: #FFFFFF !important;
+    border: 1.5px solid var(--color-lilac) !important;
+    color: var(--color-dark) !important;
+    border-radius: 0.85rem;
+}
+
+.input-field:focus {
+    border-color: var(--color-dark) !important;
+    box-shadow: 0 0 0 3px rgba(76, 83, 114, 0.1);
+    outline: none;
+}
+
+/* --- Tombol Login --- */
+.btn-login {
+    background-color: var(--color-dark) !important;
+    color: #FFFDF6 !important;
+    font-weight: 800;
+    transition: all 0.3s ease;
+}
+
+.btn-login:hover {
+    background-color: #3b415a !important;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px -5px rgba(76, 83, 114, 0.3);
+}
+
+/* --- Blob Corak (Di Belakang) --- */
+body::before {
+    content: ''; position: absolute; width: 600px; height: 600px;
+    background-color: var(--color-lilac); bottom: -200px; left: -200px;
+    border-radius: 50%; z-index: -1; opacity: 0.5;
+}
+
+body::after {
+    content: ''; position: absolute; width: 400px; height: 400px;
+    background-color: var(--color-pastel); top: -100px; right: -100px;
+    border-radius: 50%; z-index: -1; opacity: 0.15;
+}
