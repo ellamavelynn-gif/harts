@@ -1,0 +1,2 @@
+[phases.build]
+cmds = ["apt-get update && apt-get install -y php-mysqli"]
